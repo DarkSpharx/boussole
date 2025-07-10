@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="fr">
 <head>
-  <meta charset="UTF-8">
+  <meta charset="UTF-8" />
   <title>Boussole vers destination</title>
   <style>
     body {
@@ -14,7 +14,16 @@
       height: 100vh;
       margin: 0;
     }
-
+    #start-btn {
+      padding: 12px 24px;
+      font-size: 18px;
+      border: none;
+      border-radius: 6px;
+      background: #333;
+      color: white;
+      cursor: pointer;
+      margin-bottom: 20px;
+    }
     .compass-container {
       width: 240px;
       height: 240px;
@@ -24,8 +33,8 @@
       background: radial-gradient(circle at center, #fff, #ccc);
       box-shadow: 0 0 20px rgba(0,0,0,0.2);
       transition: border-color 0.5s ease;
+      display: none; /* caché au départ */
     }
-
     .needle {
       position: absolute;
       top: 20px;
@@ -36,26 +45,28 @@
       transform-origin: bottom center;
       transition: transform 0.5s ease-out;
     }
-
     .direction {
       position: absolute;
       font-weight: bold;
       font-size: 16px;
     }
-
     .north { top: 5px; left: 50%; transform: translateX(-50%); }
     .south { bottom: 5px; left: 50%; transform: translateX(-50%); }
     .east  { right: 5px; top: 50%; transform: translateY(-50%); }
     .west  { left: 5px; top: 50%; transform: translateY(-50%); }
-
     .info {
       margin-top: 20px;
       font-size: 16px;
       font-weight: bold;
+      display: none; /* caché au départ */
+      text-align: center;
+      width: 240px;
     }
   </style>
 </head>
 <body>
+
+  <button id="start-btn">Activer la boussole</button>
 
   <div class="compass-container" id="compass">
     <div class="needle" id="needle"></div>
@@ -68,13 +79,14 @@
   <div class="info" id="info">Chargement…</div>
 
   <script>
+    const startBtn = document.getElementById("start-btn");
     const needle = document.getElementById("needle");
     const compass = document.getElementById("compass");
     const info = document.getElementById("info");
 
-    // ✅ Coordonnées cibles : 50°17'29.9"N 2°46'23.7"E
-    const targetLat = 50.291639;
-    const targetLng = 2.773250;
+    // Coordonnées cibles (exemple)
+    const targetLat = 50.291639; // 50°17'29.9"N
+    const targetLng = 2.773250;  // 2°46'23.7"E
 
     let userLat = null;
     let userLng = null;
@@ -83,11 +95,9 @@
     function toRad(deg) {
       return deg * Math.PI / 180;
     }
-
     function toDeg(rad) {
       return rad * 180 / Math.PI;
     }
-
     function computeAzimuth(lat1, lng1, lat2, lng2) {
       const dLng = toRad(lng2 - lng1);
       const y = Math.sin(dLng) * Math.cos(toRad(lat2));
@@ -96,9 +106,8 @@
       let brng = toDeg(Math.atan2(y, x));
       return (brng + 360) % 360;
     }
-
     function computeDistance(lat1, lng1, lat2, lng2) {
-      const R = 6371;
+      const R = 6371; // km
       const dLat = toRad(lat2 - lat1);
       const dLng = toRad(lng2 - lng1);
       const a =
@@ -108,7 +117,6 @@
       const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
       return R * c;
     }
-
     function updateCompass() {
       if (userLat !== null && userLng !== null) {
         const azimuth = computeAzimuth(userLat, userLng, targetLat, targetLng);
@@ -134,14 +142,12 @@
       window.addEventListener("deviceorientationabsolute", handleOrientation, true);
       window.addEventListener("deviceorientation", handleOrientation, true);
     }
-
     function handleOrientation(event) {
       if (event.alpha !== null) {
         deviceHeading = event.alpha;
         updateCompass();
       }
     }
-
     function watchPosition() {
       if (navigator.geolocation) {
         navigator.geolocation.watchPosition(
@@ -151,31 +157,35 @@
             updateCompass();
           },
           (err) => {
-            info.innerText = "Erreur GPS : " + err.message;
+            info.textContent = "Erreur GPS : " + err.message;
           },
           { enableHighAccuracy: true }
         );
       } else {
-        info.innerText = "Géolocalisation non disponible.";
+        info.textContent = "Géolocalisation non disponible.";
       }
     }
 
-    window.addEventListener("load", () => {
+    startBtn.addEventListener("click", () => {
       if (typeof DeviceOrientationEvent !== "undefined" &&
           typeof DeviceOrientationEvent.requestPermission === "function") {
         DeviceOrientationEvent.requestPermission()
           .then(response => {
             if (response === "granted") {
+              startBtn.style.display = "none";
+              compass.style.display = "block";
+              info.style.display = "block";
               initOrientation();
               watchPosition();
             } else {
-              info.innerText = "Permission capteur refusée";
+              alert("Permission capteur refusée");
             }
           })
-          .catch(() => {
-            info.innerText = "Erreur lors de la demande de permission.";
-          });
+          .catch(console.error);
       } else {
+        startBtn.style.display = "none";
+        compass.style.display = "block";
+        info.style.display = "block";
         initOrientation();
         watchPosition();
       }
