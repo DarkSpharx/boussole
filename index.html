@@ -3,6 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <title>Boussole vers destination</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
   <style>
     body {
       font-family: sans-serif;
@@ -13,8 +14,10 @@
       justify-content: center;
       height: 100vh;
       margin: 0;
+      padding: 10px;
+      box-sizing: border-box;
     }
-    #start-btn {
+    button {
       padding: 12px 24px;
       font-size: 18px;
       border: none;
@@ -22,11 +25,19 @@
       background: #333;
       color: white;
       cursor: pointer;
-      margin-bottom: 20px;
+      margin: 10px 0;
+      width: 90vw;
+      max-width: 320px;
+      box-sizing: border-box;
+      user-select: none;
+      transition: background-color 0.3s;
+    }
+    button:hover {
+      background-color: #555;
     }
     .compass-container {
-      width: 240px;
-      height: 240px;
+      width: 320px;
+      height: 320px;
       border: 8px solid red;
       border-radius: 50%;
       position: relative;
@@ -36,41 +47,49 @@
       display: none;
       transform-origin: center center;
       will-change: transform;
+      max-width: 90vw;
+      max-height: 90vw;
     }
     .needle {
       position: absolute;
       top: 20px;
       left: 50%;
-      width: 4px;
-      height: 100px;
+      width: 6px;
+      height: 140px;
       background-color: red;
       transform-origin: bottom center;
-      transition: transform 0.3s ease-out;
+      transition: transform 0.4s ease-out;
       will-change: transform;
+      border-radius: 3px;
     }
     .direction {
       position: absolute;
       font-weight: bold;
-      font-size: 16px;
+      font-size: 20px;
       user-select: none;
+      color: #222;
+      text-shadow: 1px 1px 1px #fff;
     }
-    .north { top: 5px; left: 50%; transform: translateX(-50%); }
-    .south { bottom: 5px; left: 50%; transform: translateX(-50%); }
-    .east  { right: 5px; top: 50%; transform: translateY(-50%); }
-    .west  { left: 5px; top: 50%; transform: translateY(-50%); }
+    .north { top: 10px; left: 50%; transform: translateX(-50%); }
+    .south { bottom: 10px; left: 50%; transform: translateX(-50%); }
+    .east  { right: 10px; top: 50%; transform: translateY(-50%); }
+    .west  { left: 10px; top: 50%; transform: translateY(-50%); }
     .info {
       margin-top: 20px;
-      font-size: 16px;
+      font-size: 18px;
       font-weight: bold;
       display: none;
       text-align: center;
-      width: 240px;
+      max-width: 90vw;
+      word-wrap: break-word;
+      color: #333;
     }
   </style>
 </head>
 <body>
 
   <button id="start-btn">Activer la boussole</button>
+  <button id="refresh-btn" style="display:none;">Actualiser la position</button>
 
   <div class="compass-container" id="compass">
     <div class="needle" id="needle"></div>
@@ -84,6 +103,7 @@
 
   <script>
     const startBtn = document.getElementById("start-btn");
+    const refreshBtn = document.getElementById("refresh-btn");
     const needle = document.getElementById("needle");
     const compass = document.getElementById("compass");
     const info = document.getElementById("info");
@@ -96,16 +116,28 @@
     let userLng = null;
     let deviceHeading = null; // en degrés, 0-360
 
-    // Filtrage simple (lissage exponentiel) pour stabiliser deviceHeading
+    // Lissage plus fort pour orientation
     let lastHeading = null;
     function smoothHeading(newHeading) {
       if (lastHeading === null) return newHeading;
-      // Gérer le passage par 360/0 (angles circulaires)
       let diff = newHeading - lastHeading;
       if (diff > 180) diff -= 360;
       if (diff < -180) diff += 360;
-      const smooth = lastHeading + diff * 0.1; // coefficient de lissage
-      return (smooth + 360) % 360;
+      const smooth = lastHeading + diff * 0.15; // plus lent
+      lastHeading = (smooth + 360) % 360;
+      return lastHeading;
+    }
+
+    // Lissage position par moyenne glissante
+    let lastPos = null;
+    function smoothPosition(newLat, newLng) {
+      if (!lastPos) {
+        lastPos = {lat: newLat, lng: newLng};
+        return lastPos;
+      }
+      lastPos.lat += (newLat - lastPos.lat) * 0.15;
+      lastPos.lng += (newLng - lastPos.lng) * 0.15;
+      return lastPos;
     }
 
     function toRad(deg) {
@@ -138,10 +170,7 @@
       if (userLat !== null && userLng !== null && deviceHeading !== null) {
         const azimuth = computeAzimuth(userLat, userLng, targetLat, targetLng);
 
-        // Tourner le cercle (lettres) pour qu'il reste aligné vers le nord réel
         compass.style.transform = `rotate(${-deviceHeading}deg)`;
-
-        // Tourner l'aiguille pour pointer vers la cible
         needle.style.transform = `rotate(${azimuth}deg)`;
 
         const distance = computeDistance(userLat, userLng, targetLat, targetLng);
@@ -157,35 +186,33 @@
     function handleOrientation(event) {
       let alpha;
 
-      // On essaye deviceorientationabsolute si dispo
       if (event.absolute === true && event.alpha !== null) {
         alpha = event.alpha;
       } else if (event.webkitCompassHeading !== undefined) {
-        // Safari iOS fournit webkitCompassHeading (0 = Nord)
         alpha = event.webkitCompassHeading;
       } else if (event.alpha !== null) {
-        // Sinon fallback (pas toujours précis)
-        alpha = 360 - event.alpha; // inverser pour correspondre à compass
+        alpha = 360 - event.alpha;
       } else {
-        return; // Pas de donnée d'orientation valide
+        return;
       }
 
-      // Lisser la valeur pour stabilité
       deviceHeading = smoothHeading(alpha);
       updateCompass();
     }
 
-    function initOrientation() {
-      window.addEventListener("deviceorientationabsolute", handleOrientation, true);
-      window.addEventListener("deviceorientation", handleOrientation, true);
-    }
+    let geoWatchId = null;
 
-    function watchPosition() {
+    function startWatchPosition() {
       if (navigator.geolocation) {
-        navigator.geolocation.watchPosition(
+        if (geoWatchId !== null) {
+          navigator.geolocation.clearWatch(geoWatchId);
+          geoWatchId = null;
+        }
+        geoWatchId = navigator.geolocation.watchPosition(
           (pos) => {
-            userLat = pos.coords.latitude;
-            userLng = pos.coords.longitude;
+            const smoothed = smoothPosition(pos.coords.latitude, pos.coords.longitude);
+            userLat = smoothed.lat;
+            userLng = smoothed.lng;
             updateCompass();
           },
           (err) => {
@@ -205,10 +232,12 @@
           .then(response => {
             if (response === "granted") {
               startBtn.style.display = "none";
+              refreshBtn.style.display = "block";
               compass.style.display = "block";
               info.style.display = "block";
-              initOrientation();
-              watchPosition();
+              window.addEventListener("deviceorientationabsolute", handleOrientation, true);
+              window.addEventListener("deviceorientation", handleOrientation, true);
+              startWatchPosition();
             } else {
               alert("Permission capteur refusée");
             }
@@ -216,11 +245,18 @@
           .catch(console.error);
       } else {
         startBtn.style.display = "none";
+        refreshBtn.style.display = "block";
         compass.style.display = "block";
         info.style.display = "block";
-        initOrientation();
-        watchPosition();
+        window.addEventListener("deviceorientationabsolute", handleOrientation, true);
+        window.addEventListener("deviceorientation", handleOrientation, true);
+        startWatchPosition();
       }
+    });
+
+    refreshBtn.addEventListener("click", () => {
+      info.textContent = "Actualisation de la position...";
+      startWatchPosition();
     });
   </script>
 
