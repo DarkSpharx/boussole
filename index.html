@@ -34,6 +34,9 @@
       box-shadow: 0 0 20px rgba(0,0,0,0.2);
       transition: border-color 0.5s ease;
       display: none; /* caché au départ */
+      /* Ajout pour que la rotation s’applique */
+      transform-origin: center center;
+      will-change: transform;
     }
     .needle {
       position: absolute;
@@ -44,11 +47,13 @@
       background-color: red;
       transform-origin: bottom center;
       transition: transform 0.5s ease-out;
+      will-change: transform;
     }
     .direction {
       position: absolute;
       font-weight: bold;
       font-size: 16px;
+      user-select: none;
     }
     .north { top: 5px; left: 50%; transform: translateX(-50%); }
     .south { bottom: 5px; left: 50%; transform: translateX(-50%); }
@@ -117,11 +122,16 @@
       const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
       return R * c;
     }
+
     function updateCompass() {
       if (userLat !== null && userLng !== null) {
         const azimuth = computeAzimuth(userLat, userLng, targetLat, targetLng);
-        const angle = azimuth - deviceHeading;
-        needle.style.transform = `rotate(${angle}deg)`;
+
+        // Tourner la boussole pour que les lettres restent fixes vers le nord réel
+        compass.style.transform = `rotate(${-deviceHeading}deg)`;
+
+        // L'aiguille pointe vers la cible en absolu (azimuth)
+        needle.style.transform = `rotate(${azimuth}deg)`;
 
         const distance = computeDistance(userLat, userLng, targetLat, targetLng);
         const distanceText = distance < 1
@@ -130,11 +140,7 @@
 
         info.textContent = `Distance restante : ${distanceText}`;
 
-        if (distance < 0.05) {
-          compass.style.borderColor = 'green';
-        } else {
-          compass.style.borderColor = 'red';
-        }
+        compass.style.borderColor = (distance < 0.05) ? 'green' : 'red';
       }
     }
 
