@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <title>Boussole vers destination</title>
+  <style>
+    body {
+      font-family: sans-serif;
+      background: #f0f0f0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+      margin: 0;
+    }
+
+    .compass-container {
+      width: 240px;
+      height: 240px;
+      border: 8px solid red;
+      border-radius: 50%;
+      position: relative;
+      background: radial-gradient(circle at center, #fff, #ccc);
+      box-shadow: 0 0 20px rgba(0,0,0,0.2);
+      transition: border-color 0.5s ease;
+    }
+
+    .needle {
+      position: absolute;
+      top: 20px;
+      left: 50%;
+      width: 4px;
+      height: 100px;
+      background-color: red;
+      transform-origin: bottom center;
+      transition: transform 0.5s ease-out;
+    }
+
+    .direction {
+      position: absolute;
+      font-weight: bold;
+      font-size: 16px;
+    }
+
+    .north { top: 5px; left: 50%; transform: translateX(-50%); }
+    .south { bottom: 5px; left: 50%; transform: translateX(-50%); }
+    .east  { right: 5px; top: 50%; transform: translateY(-50%); }
+    .west  { left: 5px; top: 50%; transform: translateY(-50%); }
+
+    .info {
+      margin-top: 20px;
+      font-size: 16px;
+      font-weight: bold;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="compass-container" id="compass">
+    <div class="needle" id="needle"></div>
+    <div class="direction north">N</div>
+    <div class="direction south">S</div>
+    <div class="direction east">E</div>
+    <div class="direction west">W</div>
+  </div>
+
+  <div class="info" id="info">Chargement…</div>
+
+  <script>
+    const needle = document.getElementById("needle");
+    const compass = document.getElementById("compass");
+    const info = document.getElementById("info");
+
+    // ✅ Coordonnées cibles : 50°17'29.9"N 2°46'23.7"E
+    const targetLat = 50.291639;
+    const targetLng = 2.773250;
+
+    let userLat = null;
+    let userLng = null;
+    let deviceHeading = 0;
+
+    function toRad(deg) {
+      return deg * Math.PI / 180;
+    }
+
+    function toDeg(rad) {
+      return rad * 180 / Math.PI;
+    }
+
+    function computeAzimuth(lat1, lng1, lat2, lng2) {
+      const dLng = toRad(lng2 - lng1);
+      const y = Math.sin(dLng) * Math.cos(toRad(lat2));
+      const x = Math.cos(toRad(lat1)) * Math.sin(toRad(lat2)) -
+                Math.sin(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.cos(dLng);
+      let brng = toDeg(Math.atan2(y, x));
+      return (brng + 360) % 360;
+    }
+
+    function computeDistance(lat1, lng1, lat2, lng2) {
+      const R = 6371;
+      const dLat = toRad(lat2 - lat1);
+      const dLng = toRad(lng2 - lng1);
+      const a =
+        Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+        Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) *
+        Math.sin(dLng / 2) * Math.sin(dLng / 2);
+      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+      return R * c;
+    }
+
+    function updateCompass() {
+      if (userLat !== null && userLng !== null) {
+        const azimuth = computeAzimuth(userLat, userLng, targetLat, targetLng);
+        const angle = azimuth - deviceHeading;
+        needle.style.transform = `rotate(${angle}deg)`;
+
+        const distance = computeDistance(userLat, userLng, targetLat, targetLng);
+        const distanceText = distance < 1
+          ? (distance * 1000).toFixed(0) + ' m'
+          : distance.toFixed(2) + ' km';
+
+        info.textContent = `Distance restante : ${distanceText}`;
+
+        if (distance < 0.05) {
+          compass.style.borderColor = 'green';
+        } else {
+          compass.style.borderColor = 'red';
+        }
+      }
+    }
+
+    function initOrientation() {
+      window.addEventListener("deviceorientationabsolute", handleOrientation, true);
+      window.addEventListener("deviceorientation", handleOrientation, true);
+    }
+
+    function handleOrientation(event) {
+      if (event.alpha !== null) {
+        deviceHeading = event.alpha;
+        updateCompass();
+      }
+    }
+
+    function watchPosition() {
+      if (navigator.geolocation) {
+        navigator.geolocation.watchPosition(
+          (pos) => {
+            userLat = pos.coords.latitude;
+            userLng = pos.coords.longitude;
+            updateCompass();
+          },
+          (err) => {
+            info.innerText = "Erreur GPS : " + err.message;
+          },
+          { enableHighAccuracy: true }
+        );
+      } else {
+        info.innerText = "Géolocalisation non disponible.";
+      }
+    }
+
+    window.addEventListener("load", () => {
+      if (typeof DeviceOrientationEvent !== "undefined" &&
+          typeof DeviceOrientationEvent.requestPermission === "function") {
+        DeviceOrientationEvent.requestPermission()
+          .then(response => {
+            if (response === "granted") {
+              initOrientation();
+              watchPosition();
+            } else {
+              info.innerText = "Permission capteur refusée";
+            }
+          })
+          .catch(() => {
+            info.innerText = "Erreur lors de la demande de permission.";
+          });
+      } else {
+        initOrientation();
+        watchPosition();
+      }
+    });
+  </script>
+
+</body>
+</html>
