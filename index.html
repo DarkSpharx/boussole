@@ -108,27 +108,26 @@
     const compass = document.getElementById("compass");
     const info = document.getElementById("info");
 
-    // Coordonnées cibles (exemple)
-    const targetLat = 50.291639; // 50°17'29.9"N
-    const targetLng = 2.773250;  // 2°46'23.7"E
+    const targetLat = 50.291639;
+    const targetLng = 2.773250;
 
     let userLat = null;
     let userLng = null;
-    let deviceHeading = null; // en degrés, 0-360
+    let deviceHeading = null;
 
-    // Lissage plus fort pour orientation
     let lastHeading = null;
     function smoothHeading(newHeading) {
-      if (lastHeading === null) return newHeading;
+      if (lastHeading === null) {
+        lastHeading = newHeading;
+        return newHeading;
+      }
       let diff = newHeading - lastHeading;
       if (diff > 180) diff -= 360;
       if (diff < -180) diff += 360;
-      const smooth = lastHeading + diff * 0.15; // plus lent
-      lastHeading = (smooth + 360) % 360;
+      lastHeading = (lastHeading + diff * 0.15 + 360) % 360;
       return lastHeading;
     }
 
-    // Lissage position par moyenne glissante
     let lastPos = null;
     function smoothPosition(newLat, newLng) {
       if (!lastPos) {
@@ -140,36 +139,30 @@
       return lastPos;
     }
 
-    function toRad(deg) {
-      return deg * Math.PI / 180;
-    }
-    function toDeg(rad) {
-      return rad * 180 / Math.PI;
-    }
+    function toRad(deg) { return deg * Math.PI / 180; }
+    function toDeg(rad) { return rad * 180 / Math.PI; }
+
     function computeAzimuth(lat1, lng1, lat2, lng2) {
       const dLng = toRad(lng2 - lng1);
       const y = Math.sin(dLng) * Math.cos(toRad(lat2));
       const x = Math.cos(toRad(lat1)) * Math.sin(toRad(lat2)) -
                 Math.sin(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.cos(dLng);
-      let brng = toDeg(Math.atan2(y, x));
-      return (brng + 360) % 360;
+      return (toDeg(Math.atan2(y, x)) + 360) % 360;
     }
+
     function computeDistance(lat1, lng1, lat2, lng2) {
-      const R = 6371; // km
+      const R = 6371;
       const dLat = toRad(lat2 - lat1);
       const dLng = toRad(lng2 - lng1);
-      const a =
-        Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-        Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) *
-        Math.sin(dLng / 2) * Math.sin(dLng / 2);
-      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-      return R * c;
+      const a = Math.sin(dLat / 2) ** 2 +
+                Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) *
+                Math.sin(dLng / 2) ** 2;
+      return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
     }
 
     function updateCompass() {
       if (userLat !== null && userLng !== null && deviceHeading !== null) {
         const azimuth = computeAzimuth(userLat, userLng, targetLat, targetLng);
-
         compass.style.transform = `rotate(${-deviceHeading}deg)`;
         needle.style.transform = `rotate(${azimuth}deg)`;
 
@@ -177,26 +170,19 @@
         const distanceText = distance < 1
           ? (distance * 1000).toFixed(0) + ' m'
           : distance.toFixed(2) + ' km';
-
         info.textContent = `Distance restante : ${distanceText}`;
         compass.style.borderColor = (distance < 0.05) ? 'green' : 'red';
       }
     }
 
     function handleOrientation(event) {
-      let alpha;
+      if (typeof event.alpha !== "number") return;
 
-      if (event.absolute === true && event.alpha !== null) {
-        alpha = event.alpha;
-      } else if (event.webkitCompassHeading !== undefined) {
-        alpha = event.webkitCompassHeading;
-      } else if (event.alpha !== null) {
-        alpha = 360 - event.alpha;
-      } else {
-        return;
-      }
+      const screenAngle = (screen.orientation?.angle || window.orientation || 0);
+      let heading = 360 - event.alpha + screenAngle;
+      heading = (heading + 360) % 360;
 
-      deviceHeading = smoothHeading(alpha);
+      deviceHeading = smoothHeading(heading);
       updateCompass();
     }
 
@@ -206,7 +192,6 @@
       if (navigator.geolocation) {
         if (geoWatchId !== null) {
           navigator.geolocation.clearWatch(geoWatchId);
-          geoWatchId = null;
         }
         geoWatchId = navigator.geolocation.watchPosition(
           (pos) => {
@@ -215,9 +200,7 @@
             userLng = smoothed.lng;
             updateCompass();
           },
-          (err) => {
-            info.textContent = "Erreur GPS : " + err.message;
-          },
+          (err) => { info.textContent = "Erreur GPS : " + err.message; },
           { enableHighAccuracy: true }
         );
       } else {
@@ -235,7 +218,6 @@
               refreshBtn.style.display = "block";
               compass.style.display = "block";
               info.style.display = "block";
-              window.addEventListener("deviceorientationabsolute", handleOrientation, true);
               window.addEventListener("deviceorientation", handleOrientation, true);
               startWatchPosition();
             } else {
@@ -248,7 +230,6 @@
         refreshBtn.style.display = "block";
         compass.style.display = "block";
         info.style.display = "block";
-        window.addEventListener("deviceorientationabsolute", handleOrientation, true);
         window.addEventListener("deviceorientation", handleOrientation, true);
         startWatchPosition();
       }
