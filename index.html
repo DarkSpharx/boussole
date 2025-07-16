@@ -33,8 +33,7 @@
       background: radial-gradient(circle at center, #fff, #ccc);
       box-shadow: 0 0 20px rgba(0,0,0,0.2);
       transition: border-color 0.5s ease;
-      display: none; /* caché au départ */
-      /* Ajout pour que la rotation s’applique */
+      display: none;
       transform-origin: center center;
       will-change: transform;
     }
@@ -46,7 +45,7 @@
       height: 100px;
       background-color: red;
       transform-origin: bottom center;
-      transition: transform 0.5s ease-out;
+      transition: transform 0.3s ease-out;
       will-change: transform;
     }
     .direction {
@@ -63,7 +62,7 @@
       margin-top: 20px;
       font-size: 16px;
       font-weight: bold;
-      display: none; /* caché au départ */
+      display: none;
       text-align: center;
       width: 240px;
     }
@@ -95,7 +94,19 @@
 
     let userLat = null;
     let userLng = null;
-    let deviceHeading = 0;
+    let deviceHeading = null; // en degrés, 0-360
+
+    // Filtrage simple (lissage exponentiel) pour stabiliser deviceHeading
+    let lastHeading = null;
+    function smoothHeading(newHeading) {
+      if (lastHeading === null) return newHeading;
+      // Gérer le passage par 360/0 (angles circulaires)
+      let diff = newHeading - lastHeading;
+      if (diff > 180) diff -= 360;
+      if (diff < -180) diff += 360;
+      const smooth = lastHeading + diff * 0.1; // coefficient de lissage
+      return (smooth + 360) % 360;
+    }
 
     function toRad(deg) {
       return deg * Math.PI / 180;
@@ -124,13 +135,13 @@
     }
 
     function updateCompass() {
-      if (userLat !== null && userLng !== null) {
+      if (userLat !== null && userLng !== null && deviceHeading !== null) {
         const azimuth = computeAzimuth(userLat, userLng, targetLat, targetLng);
 
-        // Tourner la boussole pour que les lettres restent fixes vers le nord réel
+        // Tourner le cercle (lettres) pour qu'il reste aligné vers le nord réel
         compass.style.transform = `rotate(${-deviceHeading}deg)`;
 
-        // L'aiguille pointe vers la cible en absolu (azimuth)
+        // Tourner l'aiguille pour pointer vers la cible
         needle.style.transform = `rotate(${azimuth}deg)`;
 
         const distance = computeDistance(userLat, userLng, targetLat, targetLng);
@@ -139,21 +150,36 @@
           : distance.toFixed(2) + ' km';
 
         info.textContent = `Distance restante : ${distanceText}`;
-
         compass.style.borderColor = (distance < 0.05) ? 'green' : 'red';
       }
+    }
+
+    function handleOrientation(event) {
+      let alpha;
+
+      // On essaye deviceorientationabsolute si dispo
+      if (event.absolute === true && event.alpha !== null) {
+        alpha = event.alpha;
+      } else if (event.webkitCompassHeading !== undefined) {
+        // Safari iOS fournit webkitCompassHeading (0 = Nord)
+        alpha = event.webkitCompassHeading;
+      } else if (event.alpha !== null) {
+        // Sinon fallback (pas toujours précis)
+        alpha = 360 - event.alpha; // inverser pour correspondre à compass
+      } else {
+        return; // Pas de donnée d'orientation valide
+      }
+
+      // Lisser la valeur pour stabilité
+      deviceHeading = smoothHeading(alpha);
+      updateCompass();
     }
 
     function initOrientation() {
       window.addEventListener("deviceorientationabsolute", handleOrientation, true);
       window.addEventListener("deviceorientation", handleOrientation, true);
     }
-    function handleOrientation(event) {
-      if (event.alpha !== null) {
-        deviceHeading = event.alpha;
-        updateCompass();
-      }
-    }
+
     function watchPosition() {
       if (navigator.geolocation) {
         navigator.geolocation.watchPosition(
