@@ -22,7 +22,7 @@
       font-size: 18px;
       border: none;
       border-radius: 6px;
-      background: #333;
+      background: #00B4D8;
       color: white;
       cursor: pointer;
       margin: 10px 0;
@@ -33,17 +33,16 @@
       transition: background-color 0.3s;
     }
     button:hover {
-      background-color: #555;
+      background-color: #0095b6;
     }
     .compass-container {
       width: 320px;
       height: 320px;
-      border: 8px solid red;
+      border: 8px solid #00B4D8;
       border-radius: 50%;
       position: relative;
-      background: radial-gradient(circle at center, #fff, #ccc);
-      box-shadow: 0 0 20px rgba(0,0,0,0.2);
-      transition: border-color 0.5s ease;
+      background-color: red;
+      transition: background-color 0.5s ease, border-color 0.5s ease;
       display: none;
       transform-origin: center center;
       will-change: transform;
@@ -56,24 +55,12 @@
       left: 50%;
       width: 6px;
       height: 140px;
-      background-color: red;
+      background-color: #00B4D8;
       transform-origin: bottom center;
       transition: transform 0.4s ease-out;
       will-change: transform;
       border-radius: 3px;
     }
-    .direction {
-      position: absolute;
-      font-weight: bold;
-      font-size: 20px;
-      user-select: none;
-      color: #222;
-      text-shadow: 1px 1px 1px #fff;
-    }
-    .north { top: 10px; left: 50%; transform: translateX(-50%); }
-    .south { bottom: 10px; left: 50%; transform: translateX(-50%); }
-    .east  { right: 10px; top: 50%; transform: translateY(-50%); }
-    .west  { left: 10px; top: 50%; transform: translateY(-50%); }
     .info {
       margin-top: 20px;
       font-size: 18px;
@@ -89,14 +76,10 @@
 <body>
 
   <button id="start-btn">Activer la boussole</button>
-  <button id="refresh-btn" style="display:none;">Actualiser la position</button>
+  <button id="refresh-btn" style="display:none;">🔄 Actualiser</button>
 
   <div class="compass-container" id="compass">
     <div class="needle" id="needle"></div>
-    <div class="direction north">N</div>
-    <div class="direction south">S</div>
-    <div class="direction east">E</div>
-    <div class="direction west">W</div>
   </div>
 
   <div class="info" id="info">Chargement…</div>
@@ -171,28 +154,25 @@
           ? (distance * 1000).toFixed(0) + ' m'
           : distance.toFixed(2) + ' km';
         info.textContent = `Distance restante : ${distanceText}`;
-        compass.style.borderColor = (distance < 0.05) ? 'green' : 'red';
+        
+        const isClose = distance < 0.05;
+        compass.style.backgroundColor = isClose ? 'green' : 'red';
       }
     }
 
     function handleOrientation(event) {
       if (typeof event.alpha !== "number") return;
-
       const screenAngle = (screen.orientation?.angle || window.orientation || 0);
       let heading = 360 - event.alpha + screenAngle;
       heading = (heading + 360) % 360;
-
       deviceHeading = smoothHeading(heading);
       updateCompass();
     }
 
     let geoWatchId = null;
-
     function startWatchPosition() {
       if (navigator.geolocation) {
-        if (geoWatchId !== null) {
-          navigator.geolocation.clearWatch(geoWatchId);
-        }
+        if (geoWatchId !== null) navigator.geolocation.clearWatch(geoWatchId);
         geoWatchId = navigator.geolocation.watchPosition(
           (pos) => {
             const smoothed = smoothPosition(pos.coords.latitude, pos.coords.longitude);
@@ -235,11 +215,9 @@
       }
     });
 
-    // ✅ Ici la modification : rechargement complet de la page
     refreshBtn.addEventListener("click", () => {
       location.reload();
     });
   </script>
-
 </body>
 </html>
