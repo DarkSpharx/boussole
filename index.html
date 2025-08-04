@@ -10,9 +10,9 @@
   }
 
   #cercle {
-    width: 150px;
-    height: 150px;
-    border: 3px solid red;
+    width: 200px;
+    height: 200px;
+    border: 5px solid red; /* Plus épais */
     border-radius: 50%;
     position: relative;
     transition: border-color 0.3s ease;
@@ -23,12 +23,12 @@
     height: 0;
     border-left: 15px solid transparent;
     border-right: 15px solid transparent;
-    border-bottom: 40px solid red;
+    border-bottom: 50px solid red; /* flèche un peu plus longue */
     position: absolute;
-    top: 20px;
+    top: 50%;
     left: 50%;
-    transform: translateX(-50%) rotate(0deg);
-    transform-origin: 50% 90%;
+    transform: translate(-50%, -90%) rotate(0deg); /* base centrée */
+    transform-origin: 50% 90%; /* rotation autour de la base */
     transition: transform 0.5s ease, border-bottom-color 0.3s ease;
   }
 
@@ -46,8 +46,7 @@
     }
 
     #fleche {
-      top: 30px;
-      border-bottom-width: 60px;
+      border-bottom-width: 70px; /* flèche plus longue sur PC */
     }
   }
 </style>
@@ -92,7 +91,7 @@
     navigator.geolocation.watchPosition(pos => {
       const userLat = pos.coords.latitude;
       const userLon = pos.coords.longitude;
-      const heading = pos.coords.heading; // peut être null
+      const heading = pos.coords.heading;
 
       const distance = getDistance(userLat, userLon, targetLat, targetLon);
       const bearing = getBearing(userLat, userLon, targetLat, targetLon);
@@ -101,7 +100,7 @@
       const cercle = document.getElementById('cercle');
       const fleche = document.getElementById('fleche');
 
-      fleche.style.transform = `translateX(-50%) rotate(${rotation}deg)`;
+      fleche.style.transform = `translate(-50%, -90%) rotate(${rotation}deg)`;
       document.getElementById('distance').textContent = Math.round(distance) + " m";
 
       const couleur = distance <= 100 ? 'green' : 'red';
@@ -117,6 +116,6 @@
     });
   }
 
-  // Coordonnées précises (Abbaye Saint-Vaast)
+  // Coordonnées précises de l'Abbaye Saint-Vaast
   initBoussole(50.291685081054425, 2.773281774184819);
 </script>
