@@ -3,7 +3,7 @@
     margin: 0 auto;
     width: 100px;
     height: 100px;
-    border: 3px solid red; /* rouge par défaut */
+    border: 3px solid red;
     border-radius: 50%;
     position: relative;
     transition: border-color 0.3s ease;
@@ -13,7 +13,7 @@
       height: 0; 
       border-left: 15px solid transparent;
       border-right: 15px solid transparent;
-      border-bottom: 40px solid red; /* rouge par défaut */
+      border-bottom: 40px solid red;
       position: absolute;
       top: 10px;
       left: 35px;
@@ -28,14 +28,11 @@
   function getDistance(lat1, lon1, lat2, lon2) {
     const R = 6371000;
     const toRad = x => x * Math.PI / 180;
-
     const dLat = toRad(lat2 - lat1);
     const dLon = toRad(lon2 - lon1);
-
     const a = Math.sin(dLat/2)**2 +
               Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) *
               Math.sin(dLon/2)**2;
-
     const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
     return R * c;
   }
@@ -43,7 +40,6 @@
   function getBearing(lat1, lon1, lat2, lon2) {
     const toRad = x => x * Math.PI / 180;
     const toDeg = x => x * 180 / Math.PI;
-
     const dLon = toRad(lon2 - lon1);
     const y = Math.sin(dLon) * Math.cos(toRad(lat2));
     const x = Math.cos(toRad(lat1)) * Math.sin(toRad(lat2)) -
@@ -66,32 +62,23 @@
 
       const distance = getDistance(userLat, userLon, targetLat, targetLon);
       const bearing = getBearing(userLat, userLon, targetLat, targetLon);
+      let rotation = heading !== null ? (bearing - heading + 360) % 360 : bearing;
 
-      let rotation = bearing;
-      if (heading !== null) {
-        rotation = bearing - heading;
-      }
-      rotation = (rotation + 360) % 360;
-
-      // Applique la rotation à la flèche
+      // Appliquer la rotation à la flèche
       const fleche = document.getElementById('fleche');
       fleche.style.transform = `rotate(${rotation}deg)`;
 
-      // Change la couleur selon la distance
-      const cercle = document.getElementById('cercle');
-      if (distance <= 100) {
-        cercle.style.borderColor = "green";
-        fleche.style.borderBottomColor = "green";
-      } else {
-        cercle.style.borderColor = "red";
-        fleche.style.borderBottomColor = "red";
-      }
-
-      // Affiche la distance
+      // Afficher la distance
       document.getElementById('distance').textContent = Math.round(distance) + " m";
 
+      // Changer la couleur selon la distance
+      const cercle = document.getElementById('cercle');
+      const couleur = distance <= 100 ? 'green' : 'red';
+      cercle.style.borderColor = couleur;
+      fleche.style.borderBottomColor = couleur;
+
     }, error => {
-      document.getElementById('distance').textContent = "Impossible d'obtenir la position.";
+      document.getElementById('distance').textContent = "Position non disponible.";
     }, {
       enableHighAccuracy: true,
       maximumAge: 1000,
@@ -99,5 +86,6 @@
     });
   }
 
-  initBoussole(50.2921, 2.7783);
+  // Coordonnées précises de l'Abbaye Saint-Vaast
+  initBoussole(50.291685081054425, 2.773281774184819);
 </script>
