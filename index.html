@@ -1,27 +1,62 @@
-<div id="boussole" style="text-align:center; margin-top:20px;">
-  <div id="cercle" style="
-    margin: 0 auto;
-    width: 100px;
-    height: 100px;
+<!-- Google Font -->
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@500&display=swap" rel="stylesheet">
+
+<style>
+  #boussole {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    margin-top: 20px;
+  }
+
+  #cercle {
+    width: 150px;
+    height: 150px;
     border: 3px solid red;
     border-radius: 50%;
     position: relative;
     transition: border-color 0.3s ease;
-  ">
-    <div id="fleche" style="
-      width: 0; 
-      height: 0; 
-      border-left: 15px solid transparent;
-      border-right: 15px solid transparent;
-      border-bottom: 40px solid red;
-      position: absolute;
-      top: 10px;
-      left: 35px;
-      transform-origin: 50% 90%;
-      transition: transform 0.3s ease, border-bottom-color 0.3s ease;
-    "></div>
+  }
+
+  #fleche {
+    width: 0;
+    height: 0;
+    border-left: 15px solid transparent;
+    border-right: 15px solid transparent;
+    border-bottom: 40px solid red;
+    position: absolute;
+    top: 20px;
+    left: 50%;
+    transform: translateX(-50%) rotate(0deg);
+    transform-origin: 50% 90%;
+    transition: transform 0.5s ease, border-bottom-color 0.3s ease;
+  }
+
+  #distance {
+    margin-top: 10px;
+    font-family: 'Montserrat', sans-serif;
+    font-weight: 600;
+    font-size: 20px;
+  }
+
+  @media (min-width: 1024px) {
+    #cercle {
+      width: 250px;
+      height: 250px;
+    }
+
+    #fleche {
+      top: 30px;
+      border-bottom-width: 60px;
+    }
+  }
+</style>
+
+<div id="boussole">
+  <div id="cercle">
+    <div id="fleche"></div>
   </div>
-  <div id="distance" style="margin-top: 10px; font-weight: bold; font-size: 1.2em;">Calcul en cours...</div>
+  <div id="distance">Calcul en cours...</div>
 </div>
 
 <script>
@@ -30,9 +65,9 @@
     const toRad = x => x * Math.PI / 180;
     const dLat = toRad(lat2 - lat1);
     const dLon = toRad(lon2 - lon1);
-    const a = Math.sin(dLat/2)**2 +
+    const a = Math.sin(dLat / 2) ** 2 +
               Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) *
-              Math.sin(dLon/2)**2;
+              Math.sin(dLon / 2) ** 2;
     const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
     return R * c;
   }
@@ -45,8 +80,7 @@
     const x = Math.cos(toRad(lat1)) * Math.sin(toRad(lat2)) -
               Math.sin(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.cos(dLon);
     let brng = Math.atan2(y, x);
-    brng = toDeg(brng);
-    return (brng + 360) % 360;
+    return (toDeg(brng) + 360) % 360;
   }
 
   function initBoussole(targetLat, targetLon) {
@@ -58,21 +92,18 @@
     navigator.geolocation.watchPosition(pos => {
       const userLat = pos.coords.latitude;
       const userLon = pos.coords.longitude;
-      const heading = pos.coords.heading;
+      const heading = pos.coords.heading; // peut être null
 
       const distance = getDistance(userLat, userLon, targetLat, targetLon);
       const bearing = getBearing(userLat, userLon, targetLat, targetLon);
       let rotation = heading !== null ? (bearing - heading + 360) % 360 : bearing;
 
-      // Appliquer la rotation à la flèche
+      const cercle = document.getElementById('cercle');
       const fleche = document.getElementById('fleche');
-      fleche.style.transform = `rotate(${rotation}deg)`;
 
-      // Afficher la distance
+      fleche.style.transform = `translateX(-50%) rotate(${rotation}deg)`;
       document.getElementById('distance').textContent = Math.round(distance) + " m";
 
-      // Changer la couleur selon la distance
-      const cercle = document.getElementById('cercle');
       const couleur = distance <= 100 ? 'green' : 'red';
       cercle.style.borderColor = couleur;
       fleche.style.borderBottomColor = couleur;
@@ -86,6 +117,6 @@
     });
   }
 
-  // Coordonnées précises de l'Abbaye Saint-Vaast
+  // Coordonnées précises (Abbaye Saint-Vaast)
   initBoussole(50.291685081054425, 2.773281774184819);
 </script>
