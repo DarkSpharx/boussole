@@ -1,32 +1,32 @@
 <div id="boussole" style="text-align:center; margin-top:20px;">
-  <div style="
+  <div id="cercle" style="
     margin: 0 auto;
     width: 100px;
     height: 100px;
-    border: 3px solid black;
+    border: 3px solid red; /* rouge par défaut */
     border-radius: 50%;
     position: relative;
+    transition: border-color 0.3s ease;
   ">
     <div id="fleche" style="
       width: 0; 
       height: 0; 
       border-left: 15px solid transparent;
       border-right: 15px solid transparent;
-      border-bottom: 40px solid red;
+      border-bottom: 40px solid red; /* rouge par défaut */
       position: absolute;
       top: 10px;
       left: 35px;
       transform-origin: 50% 90%;
-      transition: transform 0.3s ease;
+      transition: transform 0.3s ease, border-bottom-color 0.3s ease;
     "></div>
   </div>
   <div id="distance" style="margin-top: 10px; font-weight: bold; font-size: 1.2em;">Calcul en cours...</div>
 </div>
 
 <script>
-  // Fonction pour calculer distance entre deux points GPS en mètres
   function getDistance(lat1, lon1, lat2, lon2) {
-    const R = 6371000; // rayon terre en mètres
+    const R = 6371000;
     const toRad = x => x * Math.PI / 180;
 
     const dLat = toRad(lat2 - lat1);
@@ -40,7 +40,6 @@
     return R * c;
   }
 
-  // Fonction pour calculer l'azimut (angle en degrés du Nord vers la cible)
   function getBearing(lat1, lon1, lat2, lon2) {
     const toRad = x => x * Math.PI / 180;
     const toDeg = x => x * 180 / Math.PI;
@@ -51,11 +50,9 @@
               Math.sin(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.cos(dLon);
     let brng = Math.atan2(y, x);
     brng = toDeg(brng);
-    return (brng + 360) % 360; // angle entre 0 et 360
+    return (brng + 360) % 360;
   }
 
-  // Fonction pour obtenir l'orientation du joueur (l'azimut vers le Nord de son appareil)
-  // et faire pivoter la flèche
   function initBoussole(targetLat, targetLon) {
     if (!navigator.geolocation) {
       document.getElementById('distance').textContent = "Géolocalisation non supportée.";
@@ -65,26 +62,32 @@
     navigator.geolocation.watchPosition(pos => {
       const userLat = pos.coords.latitude;
       const userLon = pos.coords.longitude;
-      const heading = pos.coords.heading; // direction de l'appareil en degrés par rapport au nord (peut être null)
+      const heading = pos.coords.heading;
 
       const distance = getDistance(userLat, userLon, targetLat, targetLon);
       const bearing = getBearing(userLat, userLon, targetLat, targetLon);
 
-      // Si heading est null, on affiche la flèche orientée vers la cible fixe
       let rotation = bearing;
-
-      // Si on a l'orientation du device, on calcule l'angle relatif à la direction du device
       if (heading !== null) {
         rotation = bearing - heading;
       }
-
-      // On limite la rotation entre 0 et 360 degrés
       rotation = (rotation + 360) % 360;
 
       // Applique la rotation à la flèche
-      document.getElementById('fleche').style.transform = `rotate(${rotation}deg)`;
+      const fleche = document.getElementById('fleche');
+      fleche.style.transform = `rotate(${rotation}deg)`;
 
-      // Affiche la distance arrondie en mètres
+      // Change la couleur selon la distance
+      const cercle = document.getElementById('cercle');
+      if (distance <= 100) {
+        cercle.style.borderColor = "green";
+        fleche.style.borderBottomColor = "green";
+      } else {
+        cercle.style.borderColor = "red";
+        fleche.style.borderBottomColor = "red";
+      }
+
+      // Affiche la distance
       document.getElementById('distance').textContent = Math.round(distance) + " m";
 
     }, error => {
@@ -96,6 +99,5 @@
     });
   }
 
-  // Appelle la fonction avec les coordonnées cibles (à remplacer par celles de l'acte)
-  initBoussole( /* LATITUDE_CIBLE */, /* LONGITUDE_CIBLE */ );
+  initBoussole(50.2921, 2.7783);
 </script>
