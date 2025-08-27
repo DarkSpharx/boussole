@@ -6,48 +6,51 @@
   <title>Boussole simple</title>
   <style>
     body {
+      font-family: Arial, sans-serif;
       display: flex;
       flex-direction: column;
-      justify-content: center;
       align-items: center;
+      justify-content: center;
       height: 100vh;
       margin: 0;
-      background: #f0f0f0;
-      font-family: Arial, sans-serif;
-      text-align: center;
+      background: #f9f9f9;
     }
+
     #compass {
       width: 250px;
       height: 250px;
       border-radius: 50%;
-      background: red;
+      background: red; /* Devient vert si < 50m */
       display: flex;
-      justify-content: center;
       align-items: center;
+      justify-content: center;
       position: relative;
-      transition: background 0.3s ease;
     }
-    #arrow {
+
+    .arrow {
       width: 0;
       height: 0;
       border-left: 15px solid transparent;
       border-right: 15px solid transparent;
-      border-bottom: 60px solid #007BFF; /* couleur flèche = bouton */
+      border-bottom: 70px solid #007bff; /* Couleur flèche */
       position: absolute;
-      top: 30px;
-      transform-origin: 50% 90%;
-      transition: transform 0.2s linear;
+      bottom: 50%;
+      left: 50%;
+      transform: translateX(-50%) rotate(0deg);
+      transform-origin: 50% 100%; /* Base centrée au milieu du cercle */
     }
+
     #distance {
       margin-top: 20px;
-      font-size: 1.5em;
+      font-size: 18px;
       font-weight: bold;
     }
-    #startBtn {
+
+    button {
       margin-top: 20px;
       padding: 10px 20px;
-      font-size: 1.1em;
-      background: #007BFF;
+      font-size: 16px;
+      background: #007bff;
       color: white;
       border: none;
       border-radius: 8px;
@@ -56,107 +59,93 @@
   </style>
 </head>
 <body>
+
   <div id="compass">
-    <div id="arrow"></div>
+    <div class="arrow" id="arrow"></div>
   </div>
   <div id="distance">Chargement…</div>
-  <button id="startBtn">Activer la boussole</button>
+  <button onclick="location.reload()">🔄 Actualiser</button>
 
   <script>
-    const targetLat = 50.29165790413158;
-    const targetLon = 2.773255936643764;
+    const target = { lat: 50.29165790413158, lon: 2.773255936643764 };
+    let userLat, userLon, heading;
 
-    const compass = document.getElementById("compass");
-    const arrow = document.getElementById("arrow");
-    const distanceDisplay = document.getElementById("distance");
-    const startBtn = document.getElementById("startBtn");
-
-    let currentHeading = 0;
-    let currentLat, currentLon;
-
-    // Calcul distance (Haversine)
-    function getDistance(lat1, lon1, lat2, lon2) {
-      const R = 6371000;
-      const toRad = deg => deg * Math.PI / 180;
-      const dLat = toRad(lat2 - lat1);
-      const dLon = toRad(lon2 - lon1);
-      const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
-                Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) *
-                Math.sin(dLon/2) * Math.sin(dLon/2);
+    // Haversine pour calculer la distance
+    function getDistanceFromLatLonInM(lat1, lon1, lat2, lon2) {
+      const R = 6371e3;
+      const φ1 = lat1 * Math.PI / 180;
+      const φ2 = lat2 * Math.PI / 180;
+      const Δφ = (lat2 - lat1) * Math.PI / 180;
+      const Δλ = (lon2 - lon1) * Math.PI / 180;
+      const a = Math.sin(Δφ / 2) ** 2 +
+                Math.cos(φ1) * Math.cos(φ2) *
+                Math.sin(Δλ / 2) ** 2;
       const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
       return R * c;
     }
 
-    // Calcul azimut (angle vers le point)
+    // Calcul du cap vers la cible
     function getBearing(lat1, lon1, lat2, lon2) {
-      const toRad = deg => deg * Math.PI / 180;
-      const toDeg = rad => rad * 180 / Math.PI;
-      const dLon = toRad(lon2 - lon1);
-      const y = Math.sin(dLon) * Math.cos(toRad(lat2));
-      const x = Math.cos(toRad(lat1)) * Math.sin(toRad(lat2)) -
-                Math.sin(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.cos(dLon);
-      return (toDeg(Math.atan2(y, x)) + 360) % 360;
+      const φ1 = lat1 * Math.PI / 180;
+      const φ2 = lat2 * Math.PI / 180;
+      const Δλ = (lon2 - lon1) * Math.PI / 180;
+      const y = Math.sin(Δλ) * Math.cos(φ2);
+      const x = Math.cos(φ1) * Math.sin(φ2) -
+                Math.sin(φ1) * Math.cos(φ2) * Math.cos(Δλ);
+      return (Math.atan2(y, x) * 180 / Math.PI + 360) % 360;
     }
 
-    function updateArrow() {
-      if (currentLat && currentLon) {
-        const distance = getDistance(currentLat, currentLon, targetLat, targetLon);
-        const bearing = getBearing(currentLat, currentLon, targetLat, targetLon);
-        const direction = bearing - currentHeading;
+    // Mise à jour flèche et distance
+    function updateCompass() {
+      if (userLat !== undefined && heading !== undefined) {
+        const bearing = getBearing(userLat, userLon, target.lat, target.lon);
+        const angle = bearing - heading;
+        document.getElementById("arrow").style.transform =
+          `translateX(-50%) rotate(${angle}deg)`;
 
-        arrow.style.transform = `rotate(${direction}deg)`;
-        distanceDisplay.textContent = `${distance.toFixed(1)} m`;
+        const dist = getDistanceFromLatLonInM(userLat, userLon, target.lat, target.lon);
+        document.getElementById("distance").textContent =
+          `Distance : ${Math.round(dist)} m`;
 
-        if (distance < 50) {
-          compass.style.background = "green";
-        } else {
-          compass.style.background = "red";
-        }
+        document.getElementById("compass").style.background =
+          dist < 50 ? "green" : "red";
       }
     }
 
-    function initCompass() {
-      if (window.DeviceOrientationEvent) {
-        if (typeof DeviceOrientationEvent.requestPermission === "function") {
-          // iOS
-          DeviceOrientationEvent.requestPermission()
-            .then(permissionState => {
-              if (permissionState === "granted") {
-                window.addEventListener("deviceorientation", e => {
-                  if (e.webkitCompassHeading) {
-                    currentHeading = e.webkitCompassHeading;
-                  } else {
-                    currentHeading = 360 - e.alpha;
-                  }
-                  updateArrow();
-                });
-              }
-            })
-            .catch(console.error);
-        } else {
-          // Android
-          window.addEventListener("deviceorientationabsolute", e => {
-            if (e.alpha !== null) {
-              currentHeading = 360 - e.alpha;
-              updateArrow();
-            }
-          }, true);
-        }
-      }
+    // Récupération position GPS
+    if (navigator.geolocation) {
+      navigator.geolocation.watchPosition(pos => {
+        userLat = pos.coords.latitude;
+        userLon = pos.coords.longitude;
+        updateCompass();
+      }, err => {
+        document.getElementById("distance").textContent = "Erreur GPS";
+      }, { enableHighAccuracy: true });
+    }
 
-      if (navigator.geolocation) {
-        navigator.geolocation.watchPosition(pos => {
-          currentLat = pos.coords.latitude;
-          currentLon = pos.coords.longitude;
-          updateArrow();
+    // Gestion orientation (iOS et Android)
+    function setupOrientation() {
+      if (typeof DeviceOrientationEvent !== "undefined" &&
+          typeof DeviceOrientationEvent.requestPermission === "function") {
+        // iOS
+        DeviceOrientationEvent.requestPermission().then(response => {
+          if (response === "granted") {
+            window.addEventListener("deviceorientationabsolute", e => {
+              heading = e.alpha;
+              updateCompass();
+            });
+          }
+        }).catch(console.error);
+      } else {
+        // Android
+        window.addEventListener("deviceorientationabsolute", e => {
+          heading = e.alpha;
+          updateCompass();
         });
       }
     }
 
-    startBtn.addEventListener("click", () => {
-      initCompass();
-      startBtn.style.display = "none";
-    });
+    window.onload = setupOrientation;
   </script>
 </body>
 </html>
