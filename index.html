@@ -1,121 +1,223 @@
-<!-- Google Font -->
-<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@500&display=swap" rel="stylesheet">
-
-<style>
-  #boussole {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    margin-top: 20px;
-  }
-
-  #cercle {
-    width: 200px;
-    height: 200px;
-    border: 5px solid red; /* Plus épais */
-    border-radius: 50%;
-    position: relative;
-    transition: border-color 0.3s ease;
-  }
-
-  #fleche {
-    width: 0;
-    height: 0;
-    border-left: 15px solid transparent;
-    border-right: 15px solid transparent;
-    border-bottom: 50px solid red; /* flèche un peu plus longue */
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -90%) rotate(0deg); /* base centrée */
-    transform-origin: 50% 90%; /* rotation autour de la base */
-    transition: transform 0.5s ease, border-bottom-color 0.3s ease;
-  }
-
-  #distance {
-    margin-top: 10px;
-    font-family: 'Montserrat', sans-serif;
-    font-weight: 600;
-    font-size: 20px;
-  }
-
-  @media (min-width: 1024px) {
-    #cercle {
-      width: 250px;
-      height: 250px;
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <title>Boussole vers destination</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    body {
+      font-family: sans-serif;
+      background: #f0f0f0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+      margin: 0;
+      padding: 10px;
+      box-sizing: border-box;
     }
-
-    #fleche {
-      border-bottom-width: 70px; /* flèche plus longue sur PC */
+    button {
+      padding: 12px 24px;
+      font-size: 18px;
+      border: none;
+      border-radius: 6px;
+      background: #00B4D8;
+      color: white;
+      cursor: pointer;
+      margin: 10px 0;
+      width: 90vw;
+      max-width: 320px;
+      box-sizing: border-box;
+      user-select: none;
+      transition: background-color 0.3s;
     }
-  }
-</style>
+    button:hover {
+      background-color: #0095b6;
+    }
+    .compass-container {
+      width: 320px;
+      height: 320px;
+      border: 8px solid #00B4D8;
+      border-radius: 50%;
+      position: relative;
+      background-color: red;
+      transition: background-color 0.5s ease, border-color 0.5s ease;
+      display: none;
+      transform-origin: center center;
+      will-change: transform;
+      max-width: 90vw;
+      max-height: 90vw;
+    }
+    .needle {
+      position: absolute;
+      top: 20px;
+      left: 50%;
+      width: 6px;
+      height: 140px;
+      background-color: #00B4D8;
+      transform-origin: bottom center;
+      transition: transform 0.4s ease-out;
+      will-change: transform;
+      border-radius: 3px;
+    }
+    .info {
+      margin-top: 20px;
+      font-size: 18px;
+      font-weight: bold;
+      display: none;
+      text-align: center;
+      max-width: 90vw;
+      word-wrap: break-word;
+      color: #333;
+    }
+  </style>
+</head>
+<body>
 
-<div id="boussole">
-  <div id="cercle">
-    <div id="fleche"></div>
+  <button id="start-btn">Activer la boussole</button>
+  <button id="refresh-btn" style="display:none;">🔄 Actualiser</button>
+
+  <div class="compass-container" id="compass">
+    <div class="needle" id="needle"></div>
   </div>
-  <div id="distance">Calcul en cours...</div>
-</div>
 
-<script>
-  function getDistance(lat1, lon1, lat2, lon2) {
-    const R = 6371000;
-    const toRad = x => x * Math.PI / 180;
-    const dLat = toRad(lat2 - lat1);
-    const dLon = toRad(lon2 - lon1);
-    const a = Math.sin(dLat / 2) ** 2 +
-              Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) *
-              Math.sin(dLon / 2) ** 2;
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-    return R * c;
-  }
+  <div class="info" id="info">Chargement…</div>
 
-  function getBearing(lat1, lon1, lat2, lon2) {
-    const toRad = x => x * Math.PI / 180;
-    const toDeg = x => x * 180 / Math.PI;
-    const dLon = toRad(lon2 - lon1);
-    const y = Math.sin(dLon) * Math.cos(toRad(lat2));
-    const x = Math.cos(toRad(lat1)) * Math.sin(toRad(lat2)) -
-              Math.sin(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.cos(dLon);
-    let brng = Math.atan2(y, x);
-    return (toDeg(brng) + 360) % 360;
-  }
+  <script>
+    const startBtn = document.getElementById("start-btn");
+    const refreshBtn = document.getElementById("refresh-btn");
+    const needle = document.getElementById("needle");
+    const compass = document.getElementById("compass");
+    const info = document.getElementById("info");
 
-  function initBoussole(targetLat, targetLon) {
-    if (!navigator.geolocation) {
-      document.getElementById('distance').textContent = "Géolocalisation non supportée.";
-      return;
+    const targetLat = 50.291639;
+    const targetLng = 2.773250;
+
+    let userLat = null;
+    let userLng = null;
+    let deviceHeading = null;
+
+    let lastHeading = null;
+    function smoothHeading(newHeading) {
+      if (lastHeading === null) {
+        lastHeading = newHeading;
+        return newHeading;
+      }
+      let diff = newHeading - lastHeading;
+      if (diff > 180) diff -= 360;
+      if (diff < -180) diff += 360;
+      lastHeading = (lastHeading + diff * 0.15 + 360) % 360;
+      return lastHeading;
     }
 
-    navigator.geolocation.watchPosition(pos => {
-      const userLat = pos.coords.latitude;
-      const userLon = pos.coords.longitude;
-      const heading = pos.coords.heading;
+    let lastPos = null;
+    function smoothPosition(newLat, newLng) {
+      if (!lastPos) {
+        lastPos = {lat: newLat, lng: newLng};
+        return lastPos;
+      }
+      lastPos.lat += (newLat - lastPos.lat) * 0.15;
+      lastPos.lng += (newLng - lastPos.lng) * 0.15;
+      return lastPos;
+    }
 
-      const distance = getDistance(userLat, userLon, targetLat, targetLon);
-      const bearing = getBearing(userLat, userLon, targetLat, targetLon);
-      let rotation = heading !== null ? (bearing - heading + 360) % 360 : bearing;
+    function toRad(deg) { return deg * Math.PI / 180; }
+    function toDeg(rad) { return rad * 180 / Math.PI; }
 
-      const cercle = document.getElementById('cercle');
-      const fleche = document.getElementById('fleche');
+    function computeAzimuth(lat1, lng1, lat2, lng2) {
+      const dLng = toRad(lng2 - lng1);
+      const y = Math.sin(dLng) * Math.cos(toRad(lat2));
+      const x = Math.cos(toRad(lat1)) * Math.sin(toRad(lat2)) -
+                Math.sin(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.cos(dLng);
+      return (toDeg(Math.atan2(y, x)) + 360) % 360;
+    }
 
-      fleche.style.transform = `translate(-50%, -90%) rotate(${rotation}deg)`;
-      document.getElementById('distance').textContent = Math.round(distance) + " m";
+    function computeDistance(lat1, lng1, lat2, lng2) {
+      const R = 6371;
+      const dLat = toRad(lat2 - lat1);
+      const dLng = toRad(lng2 - lng1);
+      const a = Math.sin(dLat / 2) ** 2 +
+                Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) *
+                Math.sin(dLng / 2) ** 2;
+      return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    }
 
-      const couleur = distance <= 100 ? 'green' : 'red';
-      cercle.style.borderColor = couleur;
-      fleche.style.borderBottomColor = couleur;
+    function updateCompass() {
+      if (userLat !== null && userLng !== null && deviceHeading !== null) {
+        const azimuth = computeAzimuth(userLat, userLng, targetLat, targetLng);
+        compass.style.transform = `rotate(${-deviceHeading}deg)`;
+        needle.style.transform = `rotate(${azimuth}deg)`;
 
-    }, error => {
-      document.getElementById('distance').textContent = "Position non disponible.";
-    }, {
-      enableHighAccuracy: true,
-      maximumAge: 1000,
-      timeout: 5000
+        const distance = computeDistance(userLat, userLng, targetLat, targetLng);
+        const distanceText = distance < 1
+          ? (distance * 1000).toFixed(0) + ' m'
+          : distance.toFixed(2) + ' km';
+        info.textContent = `Distance restante : ${distanceText}`;
+        
+        const isClose = distance < 0.05;
+        compass.style.backgroundColor = isClose ? 'green' : 'red';
+      }
+    }
+
+    function handleOrientation(event) {
+      if (typeof event.alpha !== "number") return;
+      const screenAngle = (screen.orientation?.angle || window.orientation || 0);
+      let heading = 360 - event.alpha + screenAngle;
+      heading = (heading + 360) % 360;
+      deviceHeading = smoothHeading(heading);
+      updateCompass();
+    }
+
+    let geoWatchId = null;
+    function startWatchPosition() {
+      if (navigator.geolocation) {
+        if (geoWatchId !== null) navigator.geolocation.clearWatch(geoWatchId);
+        geoWatchId = navigator.geolocation.watchPosition(
+          (pos) => {
+            const smoothed = smoothPosition(pos.coords.latitude, pos.coords.longitude);
+            userLat = smoothed.lat;
+            userLng = smoothed.lng;
+            updateCompass();
+          },
+          (err) => { info.textContent = "Erreur GPS : " + err.message; },
+          { enableHighAccuracy: true }
+        );
+      } else {
+        info.textContent = "Géolocalisation non disponible.";
+      }
+    }
+
+    startBtn.addEventListener("click", () => {
+      if (typeof DeviceOrientationEvent !== "undefined" &&
+          typeof DeviceOrientationEvent.requestPermission === "function") {
+        DeviceOrientationEvent.requestPermission()
+          .then(response => {
+            if (response === "granted") {
+              startBtn.style.display = "none";
+              refreshBtn.style.display = "block";
+              compass.style.display = "block";
+              info.style.display = "block";
+              window.addEventListener("deviceorientation", handleOrientation, true);
+              startWatchPosition();
+            } else {
+              alert("Permission capteur refusée");
+            }
+          })
+          .catch(console.error);
+      } else {
+        startBtn.style.display = "none";
+        refreshBtn.style.display = "block";
+        compass.style.display = "block";
+        info.style.display = "block";
+        window.addEventListener("deviceorientation", handleOrientation, true);
+        startWatchPosition();
+      }
     });
-  }
 
-  // Coordonnées précises de l'Abbaye Saint-Vaast
-  initBoussole(50.291685081054425, 2.773281774184819);
-</script>
+    refreshBtn.addEventListener("click", () => {
+      location.reload();
+    });
+  </script>
+</body>
+</html>
